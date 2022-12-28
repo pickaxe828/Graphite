@@ -174,6 +174,11 @@ impl ShapeEditor {
 		self.selected_manipulator_groups(document).flat_map(|manipulator_group| manipulator_group.selected_points())
 	}
 
+	/// Provide the manipulator group of the currently selected points by reference.
+	pub fn all_selected_manipulator_groups<'a>(&'a self, document: &'a Document) -> impl Iterator<Item = &'a ManipulatorGroup> {
+		self.iter(document).flat_map(|shape| shape.selected_manipulator_groups_any_points())
+	}
+
 	/// Move the selected points by dragging the mouse.
 	pub fn move_selected_points(&self, delta: DVec2, responses: &mut VecDeque<Message>) {
 		for layer_path in &self.selected_layers {
@@ -199,7 +204,6 @@ impl ShapeEditor {
 				DocumentMessage::ToggleSelectedHandleMirroring {
 					layer_path: layer_path.clone(),
 					toggle_angle,
-					toggle_distance,
 				}
 				.into(),
 			);

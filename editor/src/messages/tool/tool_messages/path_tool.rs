@@ -11,6 +11,7 @@ use crate::messages::tool::utility_types::{HintData, HintGroup, HintInfo};
 
 use document_legacy::intersection::Quad;
 use graphene_std::vector::consts::ManipulatorType;
+use graphene_std::vector::manipulator_point::ManipulatorPoint;
 
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -256,7 +257,19 @@ impl Fsm for PathToolFsmState {
 					let shift_pressed = input.keyboard.get(shift_mirror_distance as usize);
 					if shift_pressed != tool_data.shift_debounce {
 						tool_data.shift_debounce = shift_pressed;
-						tool_data.shape_editor.toggle_handle_mirroring_on_selected(false, true, responses);
+						let selected_manipulators = tool_data.shape_editor.all_selected_manipulator_groups(&document.document_legacy);
+						if selected_manipulators.count() == 1 {
+							// Mirrors the distance only when 1 manipulator is selected
+							selected_manipulators.for_each(|manipulator| {
+								let opposite_handle: &mut ManipulatorPoint =
+									&mut manipulator.points[manipulator.selected_handles_mut().next().unwrap().manipulator_type.opposite_handle() as usize].unwrap();
+								manipulator.move_symmetrical_handle(
+									manipulator.selected_handles_mut().next().unwrap().position,
+									opposite_handle,
+									manipulator.points[ManipulatorType::Anchor].unwrap().position,
+								);
+							});
+						}
 					}
 
 					// Move the selected points by the mouse position

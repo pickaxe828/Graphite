@@ -178,7 +178,6 @@ pub enum DocumentMessage {
 	},
 	ToggleSelectedHandleMirroring {
 		layer_path: Vec<LayerId>,
-		toggle_distance: bool,
 		toggle_angle: bool,
 	},
 	Undo,

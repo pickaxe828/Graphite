@@ -273,7 +273,6 @@ pub enum Operation {
 	},
 	SetSelectedHandleMirroring {
 		layer_path: Vec<LayerId>,
-		toggle_distance: bool,
 		toggle_angle: bool,
 	},
 }
