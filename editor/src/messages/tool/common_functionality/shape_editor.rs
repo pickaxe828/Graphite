@@ -174,9 +174,17 @@ impl ShapeEditor {
 		self.selected_manipulator_groups(document).flat_map(|manipulator_group| manipulator_group.selected_points())
 	}
 
-	/// Provide the manipulator group of the currently selected points by reference.
-	pub fn all_selected_manipulator_groups<'a>(&'a self, document: &'a Document) -> impl Iterator<Item = &'a ManipulatorGroup> {
+	/// Provides currently selected points by reference, including handles
+	pub fn selected_manipulator_handles_any_points<'a>(&'a self, document: &'a Document) -> impl Iterator<Item = &'a ManipulatorPoint> {
+		self.iter(document)
+			.flat_map(|shape| shape.selected_manipulator_groups_any_points())
+			.flat_map(|manipulator_group| manipulator_group.selected_handles())
+	}
+
+	/// Provides the manipulator groups of the currently selected points by reference
+	pub fn selected_manipulator_groups_any_points<'a>(&'a self, document: &'a Document) -> impl Iterator<Item = &'a ManipulatorGroup> {
 		self.iter(document).flat_map(|shape| shape.selected_manipulator_groups_any_points())
+		// .filter(|manipulator_group| manipulator_group.any_points_selected())
 	}
 
 	/// Move the selected points by dragging the mouse.

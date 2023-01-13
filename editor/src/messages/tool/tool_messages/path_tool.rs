@@ -1,15 +1,20 @@
+use std::{array, vec};
+
 use crate::consts::{SELECTION_THRESHOLD, SELECTION_TOLERANCE};
 use crate::messages::frontend::utility_types::MouseCursorIcon;
 use crate::messages::input_mapper::utility_types::input_keyboard::{Key, KeysGroup, MouseMotion};
 use crate::messages::layout::utility_types::layout_widget::PropertyHolder;
-use crate::messages::prelude::*;
 use crate::messages::tool::common_functionality::overlay_renderer::OverlayRenderer;
 use crate::messages::tool::common_functionality::shape_editor::ShapeEditor;
 use crate::messages::tool::common_functionality::snapping::SnapManager;
 use crate::messages::tool::utility_types::{EventToMessageMap, Fsm, ToolActionHandlerData, ToolMetadata, ToolTransition, ToolType};
 use crate::messages::tool::utility_types::{HintData, HintGroup, HintInfo};
+use crate::messages::{debug, prelude::*};
 
 use document_legacy::intersection::Quad;
+use document_legacy::Operation;
+use dyn_any::DynAny;
+use graphene_core::vector::manipulator_group;
 use graphene_std::vector::consts::ManipulatorType;
 use graphene_std::vector::manipulator_point::ManipulatorPoint;
 
@@ -253,22 +258,49 @@ impl Fsm for PathToolFsmState {
 						}
 					}
 
-					// Determine when shift state changes
-					let shift_pressed = input.keyboard.get(shift_mirror_distance as usize);
-					if shift_pressed != tool_data.shift_debounce {
-						tool_data.shift_debounce = shift_pressed;
-						let selected_manipulators = tool_data.shape_editor.all_selected_manipulator_groups(&document.document_legacy);
-						if selected_manipulators.count() == 1 {
-							// Mirrors the distance only when 1 manipulator is selected
-							selected_manipulators.for_each(|manipulator| {
-								let opposite_handle: &mut ManipulatorPoint =
-									&mut manipulator.points[manipulator.selected_handles_mut().next().unwrap().manipulator_type.opposite_handle() as usize].unwrap();
-								manipulator.move_symmetrical_handle(
-									manipulator.selected_handles_mut().next().unwrap().position,
-									opposite_handle,
-									manipulator.points[ManipulatorType::Anchor].unwrap().position,
-								);
-							});
+					// When shift is down, the anchor of the selected handle should be mirrored
+					let selected_manipulators = tool_data.shape_editor.selected_manipulator_groups_any_points(&document.document_legacy).collect::<Vec<_>>();
+					let selected_points = tool_data.shape_editor.selected_manipulator_handles_any_points(&document.document_legacy).collect::<Vec<_>>();
+					if selected_points.len() == 1 {
+						// Lol this is so funny
+						// debug!("{:?}", &selected_manipulators);
+						let selected_manipulator = &*selected_manipulators[0];
+						let selected_handle = selected_points[0];
+						let opposing_handle = selected_manipulator.opposing_handle(selected_handle).unwrap();
+						let opposing_type = &opposing_handle.manipulator_type;
+						debug!("{:?} {:?}", selected_handle, opposing_handle);
+
+						let layer_path = tool_data.shape_editor.selected_layers().first().unwrap().to_owned().clone();
+						let id = *document
+							.document_legacy
+							.layer(&layer_path)
+							.ok()
+							.and_then(|layer| layer.as_subpath())
+							.unwrap()
+							.manipulator_groups()
+							.enumerate()
+							.into_iter()
+							.filter(|(_, manipulator)| manipulator.any_points_selected())
+							.next()
+							.unwrap()
+							.0;
+						debug!("{:?}", id);
+
+						let reflect_center = selected_manipulators[0].points[ManipulatorType::Anchor].as_ref().unwrap().position;
+						let radius = reflect_center.distance(opposing_handle.position);
+						let position: (f64, f64);
+						if let Some(offset) = (selected_handle.position - reflect_center).try_normalize() {
+							debug!("haha");
+							position = (reflect_center - offset * radius).into();
+							responses.push_back(
+								Operation::MoveManipulatorPoint {
+									layer_path,
+									id,
+									manipulator_type: *opposing_type,
+									position,
+								}
+								.into(),
+							);
 						}
 					}
 
