@@ -11,6 +11,7 @@ use crate::messages::portfolio::document::utility_types::misc::DocumentRenderMod
 use crate::messages::portfolio::utility_types::ImaginateServerStatus;
 use crate::messages::prelude::*;
 
+use crate::messages::tool::utility_types::{HintData, HintGroup};
 use document_legacy::document::pick_safe_imaginate_resolution;
 use document_legacy::layers::layer_info::{LayerDataType, LayerDataTypeDiscriminant};
 use document_legacy::layers::text_layer::Font;
@@ -92,9 +93,11 @@ impl MessageHandler<PortfolioMessage, (&InputPreprocessorMessageHandler, &Prefer
 					responses.push_back(BroadcastEvent::ToolAbort.into());
 					responses.push_back(ToolMessage::DeactivateTools.into());
 
-					// Clear properties panel and layer tree
+					// Clear relevant UI layouts if there are no documents
 					responses.push_back(PropertiesPanelMessage::ClearSelection.into());
 					responses.push_back(DocumentMessage::ClearLayerTree.into());
+					let hint_data = HintData(vec![HintGroup(vec![])]);
+					responses.push_back(FrontendMessage::UpdateInputHints { hint_data }.into());
 				}
 
 				for document_id in &self.document_ids {
@@ -107,9 +110,11 @@ impl MessageHandler<PortfolioMessage, (&InputPreprocessorMessageHandler, &Prefer
 			PortfolioMessage::CloseDocument { document_id } => {
 				// Is this the last document?
 				if self.documents.len() == 1 && self.document_ids[0] == document_id {
-					// Clear properties panel and layer tree
+					// Clear UI layouts that assume the existence of a document
 					responses.push_back(PropertiesPanelMessage::ClearSelection.into());
 					responses.push_back(DocumentMessage::ClearLayerTree.into());
+					let hint_data = HintData(vec![HintGroup(vec![])]);
+					responses.push_back(FrontendMessage::UpdateInputHints { hint_data }.into());
 				}
 				// Actually delete the document (delay to delete document is required to let the document and properties panel messages above get processed)
 				responses.push_back(PortfolioMessage::DeleteDocument { document_id }.into());
@@ -506,6 +511,7 @@ impl MessageHandler<PortfolioMessage, (&InputPreprocessorMessageHandler, &Prefer
 
 				if self.active_document().is_some() {
 					responses.push_back(BroadcastEvent::ToolAbort.into());
+					responses.push_back(OverlaysMessage::ClearAllOverlays.into());
 				}
 
 				// TODO: Remove this message in favor of having tools have specific data per document instance
@@ -705,7 +711,7 @@ impl PortfolioMessageHandler {
 				let node_id = node_path[index];
 				inner_network.output = node_id;
 
-				let Some(new_inner) = inner_network.nodes.get_mut(&node_id).and_then(|node| node.implementation.get_network_mut()) else{
+				let Some(new_inner) = inner_network.nodes.get_mut(&node_id).and_then(|node| node.implementation.get_network_mut()) else {
 					return Err("Failed to find network".to_string());
 				};
 				inner_network = new_inner;

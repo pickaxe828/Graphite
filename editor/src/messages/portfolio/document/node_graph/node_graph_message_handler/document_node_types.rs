@@ -73,7 +73,7 @@ static DOCUMENT_NODE_TYPES: &[DocumentNodeType] = &[
 			default: NodeInput::Network,
 		}],
 		outputs: &[FrontendGraphDataType::Raster],
-		properties: |_document_node, _node_id, _context| node_properties::string_properties("The graph's input is the artwork under the frame layer".to_string()),
+		properties: node_properties::input_properties,
 	},
 	DocumentNodeType {
 		name: "Output",
@@ -95,6 +95,7 @@ static DOCUMENT_NODE_TYPES: &[DocumentNodeType] = &[
 		outputs: &[FrontendGraphDataType::Raster],
 		properties: node_properties::no_properties,
 	},
+	#[cfg(feature = "gpu")]
 	DocumentNodeType {
 		name: "GpuImage",
 		category: "Image Adjustments",
@@ -104,11 +105,56 @@ static DOCUMENT_NODE_TYPES: &[DocumentNodeType] = &[
 			DocumentInputType {
 				name: "Path",
 				data_type: FrontendGraphDataType::Text,
-				default: NodeInput::value(TaggedValue::String(String::new()), true),
+				default: NodeInput::value(TaggedValue::String(String::new()), false),
 			},
 		],
 		outputs: &[FrontendGraphDataType::Raster],
 		properties: node_properties::gpu_map_properties,
+	},
+	#[cfg(feature = "quantization")]
+	DocumentNodeType {
+		name: "QuantizeImage",
+		category: "Image Adjustments",
+		identifier: NodeIdentifier::new("graphene_std::quantization::GenerateQuantizationNode", &[concrete!("&TypeErasedNode")]),
+		inputs: &[
+			DocumentInputType {
+				name: "Image",
+				data_type: FrontendGraphDataType::Raster,
+				default: NodeInput::value(TaggedValue::Image(Image::empty()), true),
+			},
+			DocumentInputType {
+				name: "samples",
+				data_type: FrontendGraphDataType::Number,
+				default: NodeInput::value(TaggedValue::U32(100), false),
+			},
+			DocumentInputType {
+				name: "Fn index",
+				data_type: FrontendGraphDataType::Number,
+				default: NodeInput::value(TaggedValue::U32(0), false),
+			},
+		],
+		outputs: &[FrontendGraphDataType::Raster],
+		properties: node_properties::quantize_properties,
+	},
+	DocumentNodeType {
+		name: "Gaussian Blur",
+		category: "Image Filters",
+		identifier: NodeIdentifier::new("graphene_core::raster::BlurNode", &[]),
+		inputs: &[
+			DocumentInputType::new("Image", TaggedValue::Image(Image::empty()), true),
+			DocumentInputType::new("Radius", TaggedValue::U32(3), false),
+			DocumentInputType::new("Sigma", TaggedValue::F64(1.), false),
+		],
+		outputs: &[FrontendGraphDataType::Raster],
+		properties: node_properties::blur_image_properties,
+	},
+	DocumentNodeType {
+		name: "Cache",
+		category: "Structural",
+		identifier: NodeIdentifier::new("graphene_std::memo::CacheNode", &[concrete!("Image")]),
+		inputs: &[DocumentInputType::new("Image", TaggedValue::Image(Image::empty()), true)],
+		outputs: &[FrontendGraphDataType::Raster],
+		properties: node_properties::no_properties,
 	},
 	DocumentNodeType {
 		name: "Invert RGB",
